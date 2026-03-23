@@ -23,22 +23,26 @@ def test_primary_adj(pocc=False, fast=False, verbose=False):
     else:
         print(f'A minimal primary adjustment set for X and Y is {pas}.')
 
-def test_confounder_select(pocc=False, fast=False, verbose=False):
+def test_confounder_select(oracle=True, pocc=False, fast=False, verbose=False):
     g = ADMG()
     g.add_directed_edges([('X', 'Y'), ('M', 'X'), ('N', 'Y')])
     g.add_bidirected_edges([('M', 'Y'), ('N', 'X')]) # ('X', 'M'), ('N', 'Y'),
 
-    # C = confounder_select('X', 'Y', g, pocc=pocc, fast=fast, verbose=verbose)
-    C = confounder_select('X', 'Y')
+    if oracle:
+        C = confounder_select('X', 'Y', g, pocc=pocc, fast=fast, verbose=verbose)
+    else:
+        C = confounder_select('X', 'Y')
     if C is None:
         print('No sufficient adjustment set found.')
     else:
         print(f'A sufficient adjustment set for X and Y is {C}.')
 
 if __name__ == "__main__":
+    oracle = True # if True, the true ADMG is provided and the algorithm works based on that.
+    # otherwise it interacts with the user to elicit information.
     verbose = True
     pocc = True  # whether the algorithm prioritizes adding the observed common causes to the set over
     # adding mediators of unobserved common causes
     fast = False # the faster version of the algorithm adds every observed comon cause to the primary set at the
     # same time rather than adding them one by one. It might be worthwhile for large graphs.
-    test_confounder_select(pocc, fast, verbose)
+    test_confounder_select(oracle, pocc, fast, verbose)
