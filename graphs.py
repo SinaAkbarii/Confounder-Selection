@@ -6,6 +6,7 @@ Directed Acyclic Graphs (DAGs), and undirected graphs.
 from collections import deque
 from typing import Any
 from min_cut import min_vertex_cut
+from copy import copy
 
 
 class ADMG:
@@ -22,6 +23,19 @@ class ADMG:
         self.b_edges = {}  # bidirected edges
         self.dag = None  # cached DAG representation of the ADMG
         self.updated = False  # flag to track if the graph has been updated since the last DAG conversion
+
+    def copy(self) -> 'ADMG':
+        # return a copy of itself
+        new_graph = ADMG()
+        new_graph.nodes = copy(self.nodes)
+        new_graph.node_parents = copy(self.node_parents)
+        new_graph.node_children = copy(self.node_children)
+        new_graph.b_edges = copy(self.b_edges)
+        new_graph.dag = copy(self.dag)
+        new_graph.updated = copy(self.updated)
+        return new_graph
+
+
 
     def add_node(self, node, bypass_name_restrictions=False) -> None:
         if not bypass_name_restrictions:
@@ -67,6 +81,42 @@ class ADMG:
     def add_bidirected_edges(self, edge_list) -> None:
         for node1, node2 in edge_list:
             self.add_bidirected_edge(node1, node2)
+
+    def delete_bidirected_edge(self, node1, node2) -> None:
+        if (node1 in self.nodes and node2 in self.nodes
+                and node1 in self.b_edges[node2] and node2 in self.b_edges[node1]):
+            self.b_edges[node1].remove(node2)
+            self.b_edges[node2].remove(node1)
+            return
+        else:
+            raise ValueError(f"Bidirectional edge between {node1} and {node2} not found.")
+
+    def delete_directed_edge(self, node1, node2) -> None:
+        if (node1 in self.nodes and node2 in self.nodes
+                and node2 in self.node_children[node1] and node1 in self.node_parents[node2]):
+            self.node_children[node1].remove(node2)
+            self.node_parents[node2].remove(node1)
+            return
+        else:
+            raise ValueError(f"Directed edge from {node1} to {node2} not found.")
+
+    def is_bidirected_connected(self, node1, node2) -> bool:
+        """Check if there is a bidirected path between node1 and node2."""
+        visited = set()
+        queue = deque([node1])
+        visited.add(node1)
+
+        while queue:
+            current = queue.popleft()
+            if current == node2:
+                return True
+            for neighbor in self.b_edges[current]:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+        return False
+
 
     def _get_dag(self) -> 'DAG':
         """
@@ -120,7 +170,7 @@ class ADMG:
     def get_subgraph(self, nodes, x=None, y=None) -> 'ADMG':
         """
             Get the subgraph of the ADMG induced by a set of nodes.
-            if x and y are provided, the directed edge from x to y will be excluded from the subgraph.
+            if x and y are provided, the directed between x and y will be excluded from the subgraph.
         """
         subgraph = ADMG()
         subgraph.add_nodes(nodes, bypass_name_restrictions=True)  # allow nodes starting with "L" in the subgraph if
@@ -137,12 +187,13 @@ class ADMG:
                 if b_neighbor in nodes:
                     subgraph.add_bidirected_edge(node, b_neighbor)
 
-        if x is not None and y is not None and x in nodes and y in nodes:
-            # remove the directed edge from x to y if it exists
-            if y in subgraph.node_children[x]:
-                subgraph.node_children[x].remove(y)
-            if x in subgraph.node_parents[y]:
-                subgraph.node_parents[y].remove(x)
+        # Make sure there is no directed edge left between x and y if they are provided:
+        if x is not None and y is not None:
+            if x in subgraph.nodes and y in subgraph.nodes:
+                subgraph.add_directed_edges({(y, x), (x, y)})
+                subgraph.delete_directed_edge(x, y)
+                subgraph.delete_directed_edge(y, x)
+
         return subgraph
 
     def _get_dag_ancestral_subgraph(self, nodes, not_through=None, x=None, y=None) -> tuple['DAG', set]:
@@ -189,7 +240,7 @@ class ADMG:
                     if verbose:
                         print(f"removed {node} from primary adjustment set to minimize it")
             if verbose:
-                print(f"---------\n")
+                print(f"---------------\n")
             return minimal_adjustment
 
         if current_adjustment is None:
@@ -199,7 +250,7 @@ class ADMG:
         # are not already blocked by the current adjustment set, so we can return an empty set.
         if not common_ancestors:
             if verbose:
-                print(f"---------\n")
+                print(f"---------------\n")
             return set()
 
         primary_adjustment = set()
@@ -314,7 +365,7 @@ class ADMG:
             if verbose:
                 print(f"remaining common causes that cannot be blocked by any adjustment set: {common_ancestors}")
                 print(f"no primary adjustment set exists.")
-                print(f"---------\n")
+                print(f"---------------\n")
             return None
         else:
             return minimalize(primary_adjustment)
