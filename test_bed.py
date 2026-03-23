@@ -1,6 +1,6 @@
 from graphs import ADMG, DAG
 from min_cut import min_vertex_cut
-from algorithms import confounder_select_knowngraph
+from algorithms import confounder_select
 
 def test_min_cut():
     # Example usage for vertex cut
@@ -28,7 +28,8 @@ def test_confounder_select(pocc=False, fast=False, verbose=False):
     g.add_directed_edges([('X', 'Y'), ('M', 'X'), ('N', 'Y')])
     g.add_bidirected_edges([('M', 'Y'), ('N', 'X')]) # ('X', 'M'), ('N', 'Y'),
 
-    C = confounder_select_knowngraph('X', 'Y', g, pocc=pocc, fast=fast, verbose=verbose)
+    # C = confounder_select('X', 'Y', g, pocc=pocc, fast=fast, verbose=verbose)
+    C = confounder_select('X', 'Y')
     if C is None:
         print('No sufficient adjustment set found.')
     else:

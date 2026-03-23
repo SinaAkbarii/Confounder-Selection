@@ -6,7 +6,7 @@ Directed Acyclic Graphs (DAGs), and undirected graphs.
 from collections import deque
 from typing import Any
 from min_cut import min_vertex_cut
-from copy import copy
+from copy import deepcopy as copy
 
 
 class ADMG:
@@ -31,8 +31,8 @@ class ADMG:
         new_graph.node_parents = copy(self.node_parents)
         new_graph.node_children = copy(self.node_children)
         new_graph.b_edges = copy(self.b_edges)
-        new_graph.dag = copy(self.dag)
-        new_graph.updated = copy(self.updated)
+        # new_graph.dag = None
+        new_graph.updated = True
         return new_graph
 
 

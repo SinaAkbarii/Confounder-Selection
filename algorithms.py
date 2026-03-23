@@ -1,6 +1,6 @@
 from graphs import ADMG
 
-def confounder_select_knowngraph(x, y, G:'ADMG', pocc=False, fast=False, verbose=False) -> set | None:
+def confounder_select(x, y, G=None, pocc=False, fast=False, verbose=False) -> set | None:
     """
     Confounder selection via iterative graph expansion of Guo & Zhao 2026.
     :param x: exposure node (must not be an outcome of y)
@@ -13,12 +13,56 @@ def confounder_select_knowngraph(x, y, G:'ADMG', pocc=False, fast=False, verbose
     :param verbose: if True, the steps of the algorithm are printed while running.
     :return: a sufficient adjustment set for (x,y), or None if none exists.
     """
-    g = G.copy()
-    for x_child in set(G.node_children[x]):
-        g.delete_directed_edge(x, x_child)
-    print(f'children of {x} in the original graph: {G.node_children[x]}')
-    if x not in g.nodes or y not in g.nodes:
-        raise ValueError(f"Both {x} and {y} must be in the graph.")
+    
+    def interactive_get_primary_adj(a, b, current_adjustment):
+        primary_adjustment = set()
+        while True:
+            print(f"Is there a common cause of {a} and {b} whose effects are not fully mediated through "
+                  f"{current_adjustment.union(primary_adjustment)}? (y/n)")
+            response = input().lower()
+            if response == 'y':
+                print(f"Is this common cause observed? (y/n)")
+                is_obs = input().lower()
+
+                if is_obs == 'y':
+                    print(f"What is the name of this common cause?")
+                    cc_name = input()
+                    primary_adjustment.add(cc_name)
+                elif is_obs == 'n':
+                    print(f"Is there a set of variables that either fully mediate the effects of this common cause on {a} "
+                          f"or fully mediate the effects of this comon cause on {b}? (y/n)")
+                    is_mediate = input().lower()
+                    if is_mediate == 'y':
+                        print(f"Please enter the set of these mediators separated by a comma (,)")
+                        mediators = input().split(",")
+                        primary_adjustment.update(set(mediators))
+                    elif is_mediate == 'n':
+                        print(f"Would you like to try with another common cause of {a} and {b}? (y/n)")
+                        try_another = input().lower()
+                        if try_another == 'y':
+                            pass
+                        elif try_another == 'n':
+                            print(f"No primary adjustment set found for {a},{b}")
+                            return None
+                        else: # unaccepted input
+                            raise ValueError("unacceptable input")
+                    else:  # unaccepted input
+                        raise ValueError("unacceptable input")
+                else:  # unaccepted input
+                    raise ValueError("unacceptable input")
+            elif response == 'n':
+                print(f"A primary adjustment set for {a} and {b} is {primary_adjustment}.")
+                return primary_adjustment
+            else:
+                raise ValueError("unacceptable input")
+    
+    if G is not None:
+        # Graph provided. we will run an oracle version of get_primary_adjustment set
+        g = G.copy()
+        for x_child in set(G.node_children[x]):
+            g.delete_directed_edge(x, x_child)
+        if x not in g.nodes or y not in g.nodes:
+            raise ValueError(f"Both {x} and {y} must be in the graph.")
 
     # initiate the expanded graph:
     expanded_graph = ADMG()
@@ -59,9 +103,13 @@ def confounder_select_knowngraph(x, y, G:'ADMG', pocc=False, fast=False, verbose
             raise Exception("No edge to select. This can only be due to a bug in the code.")
         # find a primary adjustment set for edge:
         S_bar = set(expanded_graph.nodes)
-        pas = g.get_primary_adjustment(edge[0], edge[1], current_adjustment=S_bar.difference({x, y}.union(edge)),
-                               prioritize_observed_common_causes=pocc, fast=fast, verbose=verbose)
-
+        if G is not None:
+            # oracle get_primary_adjustment using the provided graph:
+            pas = g.get_primary_adjustment(edge[0], edge[1], current_adjustment=S_bar.difference({x, y}.union(edge)),
+                                   prioritize_observed_common_causes=pocc, fast=fast, verbose=verbose)
+        else:
+            # elicit info interactively from the user:
+            pas = interactive_get_primary_adj(edge[0], edge[1], S_bar.difference({x, y}.union(edge)))
         if pas is None:  # if no primary adjustment set, add edge to the confounded graph
             if verbose:
                 print(f"No primary adjustment set found for edge {edge}. Adding it to the confounded graph.\n---------------\n")
@@ -83,5 +131,4 @@ def confounder_select_knowngraph(x, y, G:'ADMG', pocc=False, fast=False, verbose
         return graph_expand()
 
     return graph_expand()
-
 
