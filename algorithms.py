@@ -1,6 +1,6 @@
 from graphs import ADMG
 
-def confounder_select(x, y, G=None, pocc=False, fast=False, verbose=False) -> set | None:
+def iterative_graph_expansion(x, y, G=None, pocc=False, fast=False, verbose=False) -> set | None:
     """
     Confounder selection via iterative graph expansion of Guo & Zhao 2026.
     :param x: exposure node (must not be an outcome of y)
@@ -57,6 +57,8 @@ def confounder_select(x, y, G=None, pocc=False, fast=False, verbose=False) -> se
                 raise ValueError("unacceptable input")
     
     if G is not None:
+        if not isinstance(G, ADMG):
+            raise TypeError("The provided graph is not an ADMG.")
         # Graph provided. we will run an oracle version of get_primary_adjustment set
         g = G.copy()
         for x_child in set(G.node_children[x]):
@@ -131,4 +133,56 @@ def confounder_select(x, y, G=None, pocc=False, fast=False, verbose=False) -> se
         return graph_expand()
 
     return graph_expand()
+
+def disjunctive_cause(x, y, G=None) -> set:
+    """
+    The disjunctive cause criterion for finding a sufficient adjustment set for x,y
+    :param x: exposure node (must not be an outcome of y)
+    :param y: outcome node (must not be a cause of x)
+    :param G: ground truth ADMG over the observable variables in the problem.
+    :return: a set of variables that are causes of either x or y. If there exists a sufficient adjustment set for (x,y),
+    then the returned set is a sufficient adjustment set.
+    """
+    if G is not None:  # oracle access to the graph
+        if not isinstance(G, ADMG):
+            raise ValueError("The provided graph is not an ADMG.")
+        x_anc = G.get_ancestors(x)
+        y_anc = G.get_ancestors(y)
+        disjunctive_causes = x_anc.union(y_anc)
+    else:  # prompt the user for causes
+        # ask the user to give the observed causes of x separated by a comma
+        print(f"Please enter the observed causes of {x} separated by a comma (,). "
+              f"If there are no observed causes, just press enter.")
+        x_anc = input().split(",")
+        print(f"Please enter the observed causes of {y} separated by a comma (,). "
+              f"If there are no observed causes, just press enter.")
+        y_anc = input().split(",")
+        disjunctive_causes = set(x_anc).union(set(y_anc))
+    return disjunctive_causes.difference({x, y})
+
+def conjunctive_cause(x, y, G=None) -> set:
+    """
+    The conjunctive cause criterion for finding a sufficient adjustment set for x,y
+    :param x: exposure node (must not be an outcome of y)
+    :param y: outcome node (must not be a cause of x)
+    :param G: ground truth ADMG over the observable variables in the problem.
+    :return: a set of variables that are causes of both x and y.
+    """
+    if G is not None:
+        if not isinstance(G, ADMG):
+            raise ValueError("The provided graph is not an ADMG.")
+        x_anc = G.get_ancestors(x)
+        y_anc = G.get_ancestors(y)
+        conjunctive_causes = x_anc.intersection(y_anc)
+    else:  # prompt the user for common causes
+        print(f"Please enter the observed common causes of {x} separated by a comma (,). "
+              f"If there are no observed common causes, just press enter.")
+        x_anc = input().split(",")
+        print(f"Please enter the observed common causes of {y} separated by a comma (,). "
+              f"If there are no observed common causes, just press enter.")
+        y_anc = input().split(",")
+        conjunctive_causes = set(x_anc).intersection(set(y_anc))
+    return conjunctive_causes.difference({x, y})
+
+
 
