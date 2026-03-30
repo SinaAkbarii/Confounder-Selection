@@ -118,12 +118,32 @@ class ADMG:
 
         return False
 
+    # TODO: m-separation is implemented through d-separation in a representative dag. This may not be the most efficient way if there are too many bidirected edges in the ADMG.
     def is_m_separated(self, node1, node2, given) -> bool:
         """Check if node1 and node2 are m-separated given given."""
         if self.updated:
             self.dag = self._get_dag()
             self.updated = False
         return self.dag.is_d_separated(node1, node2, given)
+
+    def markov_boundary(self, node) -> set:
+        """Return the Markov boundary of a node in the ADMG."""
+        def get_district() -> set:
+            # get the set of nodes that are connected to node through a bidirected path
+            district = {node}
+            queue = deque([node])
+            while queue:
+                current = queue.popleft()
+                for neighbor in self.b_edges[current]:
+                    if neighbor not in district:
+                        district.add(neighbor)
+                        queue.append(neighbor)
+            return district
+
+        node_district = get_district()
+        node_dist_children = node_district.union(self.node_children[node])
+        #return the parents of node_dist_children:
+        return node_dist_children.union(*[self.node_parents[nd] for nd in node_dist_children])
 
 
     def _get_dag(self) -> 'DAG':

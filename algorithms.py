@@ -1,8 +1,9 @@
 from graphs import ADMG
+from ci_tests import ci_test
 
 def iterative_graph_expansion(x, y, gg=None, pocc=False, fast=False, verbose=False) -> set | None:
     """
-    Confounder selection via iterative graph expansion of Guo & Zhao 2026.
+    No-lookback version of confounder selection via iterative graph expansion of Guo & Zhao 2026.
     :param x: exposure node (must not be an outcome of y)
     :param y: outcome node (must not be a cause of x)
     :param gg: ground truth ADMG over the observable variables in the problem.
@@ -183,6 +184,7 @@ def conjunctive_cause(x, y, g=None) -> set:
         y_anc = input().split(",")
         conjunctive_causes = set(x_anc).intersection(set(y_anc))
     return conjunctive_causes.difference({x, y})
+
 
 
 

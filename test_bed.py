@@ -40,7 +40,7 @@ def test_iterative_graph_expansion(oracle=True, pocc=False, fast=False, verbose=
 def test_conjunctive_disjunctive(oracle=True) -> None:
     if oracle:
         g = ADMG()
-        g.add_directed_edges([('X', 'Y'), ('M', 'X'), ('N', 'Y')])
+        g.add_directed_edges([('X', 'Y'), ('M', 'X'), ('N', 'Y'), ('T', 'N')])
         g.add_bidirected_edges([('M', 'Y'), ('N', 'X')])  # ('X', 'M'), ('N', 'Y'),
     else:
         g = None
