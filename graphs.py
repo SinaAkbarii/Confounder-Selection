@@ -4,6 +4,7 @@ including Acyclic Directed Mixed Graphs (ADMGs),
 Directed Acyclic Graphs (DAGs), and undirected graphs.
 """
 from collections import deque
+from logging import raiseExceptions
 from typing import Any
 from utils import min_vertex_cut
 from copy import deepcopy as copy
@@ -116,6 +117,13 @@ class ADMG:
                     queue.append(neighbor)
 
         return False
+
+    def is_m_separated(self, node1, node2, given) -> bool:
+        """Check if node1 and node2 are m-separated given given."""
+        if self.updated:
+            self.dag = self._get_dag()
+            self.updated = False
+        return self.dag.is_d_separated(node1, node2, given)
 
 
     def _get_dag(self) -> 'DAG':
@@ -396,6 +404,65 @@ class DAG(ADMG):
     def add_bidirected_edges(self, edge_list) -> None:
         raise NotImplementedError("DAGs do not support bidirected edges.")
 
+    # Efficient implementation of d-separation taken from Networkx package:
+    def is_d_separated(self, x, y, z) -> bool:
+        """ Return whether x and y are d-separated conditioned on z.
+        x,y,z can be nodes or sets of nodes each.
+        """
+
+        try:
+            x = {x} if x in self.nodes else x
+            y = {y} if y in self.nodes else y
+            z = {z} if z in self.nodes else z
+
+            set_v = x | y | z
+            if set_v - self.nodes:
+                raise ValueError(f"The node(s) {set_v - self.nodes} are not found in the graph.")
+        except TypeError:
+            raise ValueError(f"One of {x}, {y}, or {z} is not a node or a set of nodes in the graph.")
+
+
+        # contains -> and <-> edges from starting node T
+        forward_deque = deque([])
+        forward_visited = set()
+
+        # contains <- and - edges from starting node T
+        backward_deque = deque(x)
+        backward_visited = set()
+
+        ancestors_or_z = set().union(*[self.get_ancestors(node) for node in x]) | z | x
+
+        while forward_deque or backward_deque:
+            if backward_deque:
+                node = backward_deque.popleft()
+                backward_visited.add(node)
+                if node in y:
+                    return False
+                if node in z:
+                    continue
+
+                # add <- edges to backward deque
+                backward_deque.extend(self.node_parents[node] - backward_visited)
+                # add -> edges to forward deque
+                forward_deque.extend(self.node_children[node] - forward_visited)
+
+            if forward_deque:
+                node = forward_deque.popleft()
+                forward_visited.add(node)
+                if node in y:
+                    return False
+
+                # Consider if -> node <- is opened due to ancestor of node in z
+                if node in ancestors_or_z:
+                    # add <- edges to backward deque
+                    backward_deque.extend(self.node_parents[node] - backward_visited)
+                if node not in z:
+                    # add -> edges to forward deque
+                    forward_deque.extend(self.node_children[node] - forward_visited)
+
+        return True
+
+
 
 
 class WeightedDAG(DAG):
@@ -490,3 +557,5 @@ class WeightedDAG(DAG):
         print(f"Cut edges: {cut_edges}")
         print(f"Cut value: {sum(self.edge_weights.get(edge, 0) for edge in cut_edges)}")
         return cut_edges, sum(self.edge_weights.get(edge, 0) for edge in cut_edges)
+
+
