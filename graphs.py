@@ -5,7 +5,7 @@ Directed Acyclic Graphs (DAGs), and undirected graphs.
 """
 from collections import deque
 from typing import Any
-from min_cut import min_vertex_cut
+from utils import min_vertex_cut
 from copy import deepcopy as copy
 
 

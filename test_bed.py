@@ -1,5 +1,5 @@
 from graphs import ADMG, DAG
-from min_cut import min_vertex_cut
+from utils import min_vertex_cut
 from algorithms import iterative_graph_expansion, disjunctive_cause, conjunctive_cause
 
 def test_min_cut():
