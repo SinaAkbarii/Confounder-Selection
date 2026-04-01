@@ -8,36 +8,57 @@
 """
 
 import numpy as np
+import pandas as pd
 from causallearn.utils.cit import CIT
 
-def ci_test(X, Y, Z, method="fisherz"):
+def ci_test_df(df, x_col, y_col, z_cols=None, method="fisherz"):
     """
-    X: shape (n,) or (n,1)
-    Y: shape (n,) or (n,1)
-    Z: shape (n,k)   multidimensional conditioning set
-    method: "fisherz" and "kci" for continuous data,
-    or "chisq" and "gsq" for discrete data
+        df: dataset, pandas DataFrame
+        x_col, y_col: column names (strings)
+        z_cols: list of column names (conditioning set), one column name (string), or None
+        method: "fisherz", "kci", "chisq", "gsq"
     """
-    X = np.asarray(X).reshape(-1, 1)
-    Y = np.asarray(Y).reshape(-1, 1)
-    Z = np.asarray(Z)
+    if z_cols is None:
+        z_cols = []
+    if isinstance(z_cols, str):
+        z_cols = [z_cols]
 
-    if Z.ndim == 1:
-        Z = Z.reshape(-1, 1)
+    # Extract data
+    x = df[[x_col]].to_numpy()
+    y = df[[y_col]].to_numpy()
 
-    data = np.hstack([X, Y, Z])
+    if len(z_cols) > 0:
+        z = df[z_cols].to_numpy()
+    else:
+        z = np.empty((len(df), 0))  # no conditioning variables
+
+    # Combine into single dataset
+    data = np.hstack([x, y, z])
     cit = CIT(data, method)
 
-    z_inds = list(range(2, 2 + Z.shape[1]))
+    z_inds = list(range(2, 2 + z.shape[1]))
     pval = cit(0, 1, z_inds)
+
     return pval
 
-# Example use:
-rng = np.random.default_rng(42)
-n = 400
-Z = rng.normal(size=(n, 4))
-X = Z[:, 0] + rng.normal(size=n)
-Y = Z[:, 0] - Z[:, 2] + rng.normal(size=n)
+if __name__ == "__main__":
+    import pandas as pd
+    import numpy as np
 
-pval = ci_test(X, Y, Z, method="kci")
-print("p-value:", pval)
+    rng = np.random.default_rng(42)
+    n = 400
+
+    df = pd.DataFrame({
+        "Z1": rng.normal(size=n),
+        "Z2": rng.normal(size=n),
+        "Z3": rng.normal(size=n),
+        "Z4": rng.normal(size=n),
+    })
+
+    df["X"] = df["Z1"] + rng.normal(size=n)
+    df["Y"] = df["Z1"] - df["Z3"] + rng.normal(size=n)
+
+    # Run CI test
+    pval = ci_test_df(df, "X", "Y", ["Z1", "Z2", "Z3", "Z4"], method="kci")
+
+    print("p-value:", pval)

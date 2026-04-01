@@ -185,6 +185,23 @@ def conjunctive_cause(x, y, g=None) -> set:
         conjunctive_causes = set(x_anc).intersection(set(y_anc))
     return conjunctive_causes.difference({x, y})
 
+def treatment_mb(x, data=None, g=None) -> set:
+    """
+    The Markov blanket of the treatment variable x.
+    :param x: exposure node
+    :param g: ground truth ADMG over the observable variables in the problem.
+    :return: the Markov blanket of x, based on: g if g is given, conditional independence testing if not.
+    """
+    if g is not None:
+        if not isinstance(g, ADMG):
+            raise ValueError("The provided graph is not an ADMG.")
+        mb = g.markov_boundary(x)
+    else:
+        if data is None:
+            raise ValueError("Either data or a graph must be provided.")
+
+
+
 
 
 

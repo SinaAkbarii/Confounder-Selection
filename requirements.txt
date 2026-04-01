@@ -1,2 +1,3 @@
 causal_learn~=0.1.4.4
 numpy~=1.26.4
+pandas~=2.3.1
