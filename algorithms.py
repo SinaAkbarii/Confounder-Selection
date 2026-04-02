@@ -1,5 +1,6 @@
 from graphs import ADMG
 from ci_tests import ci_test
+import pandas as pd
 
 def iterative_graph_expansion(x, y, gg=None, pocc=False, fast=False, verbose=False) -> set | None:
     """
@@ -185,20 +186,52 @@ def conjunctive_cause(x, y, g=None) -> set:
         conjunctive_causes = set(x_anc).intersection(set(y_anc))
     return conjunctive_causes.difference({x, y})
 
-def treatment_mb(x, data=None, g=None) -> set:
+def treatment_outcome_mb(x, y=None, data=None, g=None, ci_method="fisherz", pval_th=0.05) -> set:
     """
-    The Markov blanket of the treatment variable x.
-    :param x: exposure node
+    If y is not provided, returns the Markov blanket of the treatment variable x.
+    If y provided, returns the Markov blanket of the treatment variable y including x.
+    :param x: exposure variable
+    :param y: outcome variable
     :param g: ground truth ADMG over the observable variables in the problem.
+    :param ci_method: "fisherz", "kci", "chisq", "gsq"
+    :param pval_th: p-value threshold for independence testing
     :return: the Markov blanket of x, based on: g if g is given, conditional independence testing if not.
     """
     if g is not None:
         if not isinstance(g, ADMG):
             raise ValueError("The provided graph is not an ADMG.")
-        mb = g.markov_boundary(x)
+        if y is None:
+            mb = g.markov_boundary(x)
+        else:
+            mb = g.markov_boundary(y).union({x})
     else:
         if data is None:
             raise ValueError("Either data or a graph must be provided.")
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError("Data must be a pandas DataFrame.")
+        all_var = data.columns.tolist()
+        all_var.remove(x)
+
+        mb = set()  # the current Markov boundary
+        if y is not None:
+            mb.add(x)
+        else:
+            all_var.remove(y)
+        while all_var:
+            var = all_var.pop()
+            if y is None:
+                # test whether x is independent of var given all_var and mb:
+                pval = ci_test(data, x, var, z_cols=list(mb.union(all_var)), method=ci_method)
+            else:
+                # test whether y is independent of var given all_var and mb:
+                pval = ci_test(data, y, var, z_cols=list(mb.union(all_var)), method=ci_method)
+            # if not independent, add var to mb:
+            if pval < pval_th:
+                mb.add(var)
+
+    return mb
+
+
 
 
 

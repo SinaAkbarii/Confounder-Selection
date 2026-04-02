@@ -7,11 +7,9 @@
     A potentially useful package: https://github.com/shimenghuang/pycomets
 """
 
-import numpy as np
-import pandas as pd
 from causallearn.utils.cit import CIT
 
-def ci_test_df(df, x_col, y_col, z_cols=None, method="fisherz"):
+def ci_test(df, x_col, y_col, z_cols=None, method="fisherz"):
     """
         df: dataset, pandas DataFrame
         x_col, y_col: column names (strings)
@@ -59,6 +57,6 @@ if __name__ == "__main__":
     df["Y"] = df["Z1"] - df["Z3"] + rng.normal(size=n)
 
     # Run CI test
-    pval = ci_test_df(df, "X", "Y", ["Z1", "Z2", "Z3", "Z4"], method="kci")
+    pval = ci_test(df, "X", "Y", ["Z1", "Z2", "Z3", "Z4"], method="kci")
 
     print("p-value:", pval)
