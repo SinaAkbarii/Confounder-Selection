@@ -8,6 +8,7 @@
 """
 
 from causallearn.utils.cit import CIT
+import numpy as np
 
 def ci_test(df, x_col, y_col, z_cols=None, method="fisherz"):
     """
@@ -41,7 +42,6 @@ def ci_test(df, x_col, y_col, z_cols=None, method="fisherz"):
 
 if __name__ == "__main__":
     import pandas as pd
-    import numpy as np
 
     rng = np.random.default_rng(42)
     n = 400

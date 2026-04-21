@@ -305,15 +305,16 @@ def iterative_mb(x, y=None, g=None, data=None, ci_method="fisherz", pval_th=0.05
                 count += 1
                 print(f"Step {count}: Markov boundary of {x} is {init_mb}")
         else:
-            init_mb = data.columns.tolist()  # start from all variables
+            init_mb = set(data.columns)  # start from all variables
+
 
         # create data consisting of only init_mb and x and y:
         while True:
-            mb = treatment_outcome_mb(x, y, None, data[init_mb.union({x,y})], ci_method, pval_th)
+            mb = treatment_outcome_mb(x, y, None, data[list(init_mb.union({x,y}))], ci_method, pval_th)
             if verbose:
                 count += 1
                 print(f"Step {count}: Markov boundary of {y}|{x} is {mb}")
-            mb = treatment_outcome_mb(x, None, None, data[mb.union({x,y})], ci_method, pval_th)
+            mb = treatment_outcome_mb(x, None, None, data[list(mb.union({x,y}))], ci_method, pval_th)
             if verbose:
                 count += 1
                 print(f"Step {count}: Markov boundary of {x} is {mb}")

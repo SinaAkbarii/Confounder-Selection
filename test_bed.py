@@ -2,6 +2,8 @@ from graphs import ADMG, DAG
 from utils import min_vertex_cut
 from algorithms import (iterative_graph_expansion, disjunctive_cause, conjunctive_cause, treatment_outcome_mb,
                         minimal_disjunctive_cause, iterative_mb)
+import pandas as pd
+import numpy as np
 
 
 def gen_graph() -> ADMG:
@@ -9,6 +11,21 @@ def gen_graph() -> ADMG:
     g.add_directed_edges([('X', 'Y'), ('M', 'X'), ('N', 'Y')])
     g.add_bidirected_edges([('M', 'Y'), ('N', 'X')])
     return g
+
+def gen_data() -> pd.DataFrame:
+    rng = np.random.default_rng(42)
+    n = 1000
+
+    df = pd.DataFrame({
+        "Umy": rng.normal(size=n),
+        "Unx": rng.normal(size=n),
+    })
+    df["M"] = df["Umy"] + 2 * rng.normal(size=n)
+    df["N"] = df["Unx"] + 1.5 * rng.normal(size=n)
+    df["X"] = df["M"] + 1.5 * df["Unx"] + rng.normal(size=n)
+    df["Y"] = df["X"] + df["N"] + 3 * df["Umy"] + rng.normal(size=n)
+
+    return df[["M", "N", "X", "Y"]]
 
 
 def test_min_cut():
@@ -47,16 +64,22 @@ def test_markov_boundary(g=None, data=None, ci_method="fisherz", pval_th=0.05, v
     omb = treatment_outcome_mb('X', 'Y', g, data, ci_method=ci_method, pval_th=pval_th)
     alt1 = iterative_mb('X', 'Y', g, data, ci_method=ci_method, pval_th=pval_th, treatment_first=True, verbose=verbose)
     alt2 = iterative_mb('X', 'Y', g, data, ci_method=ci_method, pval_th=pval_th, treatment_first=False, verbose=verbose)
-    print(f"Treatment Markov Boundary: {tmb}")
-    print(f"Treatment Markov Boundary: {omb}")
+    print(f"\nTreatment Markov Boundary: {tmb}")
+    print(f"Outcome Markov Boundary: {omb}")
     print(f"Iterative MB (treatment first): {alt1}")
     print(f"Iterative MB (outcome first): {alt2}")
 
 def oracle_test(pocc=False, fast=False, verbose=True):
+    print(f"Testing on the oracle graph..")
     g = gen_graph()
     test_iterative_graph_expansion(g, pocc=pocc, fast=fast, verbose=verbose)
     test_conjunctive_disjunctive(g)
     test_markov_boundary(g, verbose=verbose)
+
+def data_test(verbose=True):
+    print(f"\n\n Testing on synthetic data..")
+    data = gen_data()
+    test_markov_boundary(data=data, verbose=verbose)
 
 
 
@@ -75,3 +98,4 @@ if __name__ == "__main__":
 
 
     oracle_test(pocc=pocc, fast=fast, verbose=verbose)
+    data_test(verbose=verbose)
