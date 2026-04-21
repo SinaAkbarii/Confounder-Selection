@@ -217,6 +217,7 @@ def treatment_outcome_mb(x, y=None, g=None, data=None, ci_method="fisherz", pval
     :param x: exposure variable
     :param y: outcome variable
     :param g: ground truth ADMG over the observable variables in the problem.
+    :param data: data
     :param ci_method: "fisherz", "kci", "chisq", "gsq"
     :param pval_th: p-value threshold for independence testing
     :return: the Markov blanket of x, based on: g if g is given, conditional independence testing if not.
@@ -250,6 +251,76 @@ def treatment_outcome_mb(x, y=None, g=None, data=None, ci_method="fisherz", pval
             if pval < pval_th:
                 mb.add(var)
     return mb.difference({x})
+
+def iterative_mb(x, y=None, g=None, data=None, ci_method="fisherz", pval_th=0.05, treatment_first=True, verbose=False) -> set:
+    """
+    alternate between treatment and outcome Markov boundaries until convergence. If y is not provided, returns the Markov blanket of the treatment variable x.
+    :param x: exposure variable.
+    :param y: outcome variable.
+    :param g: ground truth ADMG over the observable variables in the problem.
+    :param data: dataset
+    :param ci_method: "fisherz", "kci", "chisq", "gsq"
+    :param pval_th: p-value threshold for independence testing
+    :param treatment_first: if True, start from the Markov boundary of the treatment variable. Otherwise, start from the Markov boundary of the outcome variable.
+    :param verbose: if True, print the Markov boundaries at each step.
+    :return: the result of alternating between Markov boundaries until convergence.
+    """
+    if y is None:
+        return treatment_outcome_mb(x, y, g, data, ci_method, pval_th)
+    count = 0
+    if g is not None:  # run the algorithms based on the provided graph.
+        if not isinstance(g, ADMG):
+            raise ValueError("The provided graph is not an ADMG.")
+
+        if treatment_first:
+            init_mb = treatment_outcome_mb(x, None, g, None, ci_method, pval_th)
+            if verbose:
+                count += 1
+                print(f"Step {count}: Markov boundary of {x} is {init_mb}")
+        else:
+            init_mb = g.nodes
+
+        while True:
+            gg = g.marginalize(init_mb.union({x, y}))
+            mb = treatment_outcome_mb(x, y, gg, None, ci_method, pval_th)
+            if verbose:
+                count += 1
+                print(f"Step {count}: Markov boundary of {y}|{x} is {mb}")
+            gg = gg.marginalize(mb.union({x,y}))
+            mb = treatment_outcome_mb(x, None, gg, None, ci_method, pval_th)
+            if verbose:
+                count += 1
+                print(f"Step {count}: Markov boundary of {x} is {mb}")
+            if init_mb - mb.union({x,y}) == set():  # convergence happened
+                return mb
+            init_mb = mb.copy()  # not converged yet. so we continue.
+    else:  # g is not given. we need data-driven CI tests:
+        if data is None:
+            raise ValueError("Either data or a graph must be provided.")
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError("Data must be a pandas DataFrame.")
+        if treatment_first:
+            init_mb = treatment_outcome_mb(x, None, None, data, ci_method, pval_th)
+            if verbose:
+                count += 1
+                print(f"Step {count}: Markov boundary of {x} is {init_mb}")
+        else:
+            init_mb = data.columns.tolist()  # start from all variables
+
+        # create data consisting of only init_mb and x and y:
+        while True:
+            mb = treatment_outcome_mb(x, y, None, data[init_mb.union({x,y})], ci_method, pval_th)
+            if verbose:
+                count += 1
+                print(f"Step {count}: Markov boundary of {y}|{x} is {mb}")
+            mb = treatment_outcome_mb(x, None, None, data[mb.union({x,y})], ci_method, pval_th)
+            if verbose:
+                count += 1
+                print(f"Step {count}: Markov boundary of {x} is {mb}")
+            if init_mb - mb.union({x,y}) == set():  # convergence happened
+                return mb
+            init_mb = mb.copy()  # no convergence, continue.
+
 
 
 
