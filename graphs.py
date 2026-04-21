@@ -126,28 +126,30 @@ class ADMG:
             self.updated = False
         return self.dag.is_d_separated(node1, node2, given)
 
-    # TODO: project function is not correctly implemented yet.
-    def project(self, nodes) -> 'ADMG':
+
+    def marginalize(self, nodes) -> 'ADMG':
         """Project the ADMG onto a subset of nodes by marginalizing out the other nodes."""
         # check if nodes are all in self.nodes:
         if not set(nodes).issubset(self.nodes):
             raise ValueError(f"All nodes in the projection must be in the original graph. The following nodes are not in the original graph: {set(nodes) - self.nodes}")
 
-        projected_graph = ADMG()
-        projected_graph.add_nodes(nodes, bypass_name_restrictions=True)  # allow nodes starting with "L" in the projected graph if they already are included in the original graph.
+        marginalized_graph = self.get_subgraph(nodes)
 
-        for node in nodes:
-            for parent in self.node_parents[node]:
-                if parent in nodes:
-                    projected_graph.add_directed_edge(parent, node)
-            for child in self.node_children[node]:
-                if child in nodes:
-                    projected_graph.add_directed_edge(node, child)
-            for b_neighbor in self.b_edges[node]:
-                if b_neighbor in nodes:
-                    projected_graph.add_bidirected_edge(node, b_neighbor)
-
-        return projected_graph
+        # add edges due to marginalization:
+        nodes_to_margnialize = self.nodes - set(nodes)
+        for node in nodes_to_margnialize:
+            children = self.node_children[node]
+            for ch1 in children:
+                # add a bidirected edge between pairs of children: confounding due to node
+                for ch2 in children.difference({ch1}):
+                    marginalized_graph.add_bidirected_edge(ch1, ch2)
+                # add a bidirected edge between bidirected neighbors of node and its children: confounding due to node
+                for bi in self.b_edges[node].difference({ch1}):
+                    marginalized_graph.add_bidirected_edge(ch1, bi)
+                # finally, add a directed edge from every parent to every child of node: directed path due to node
+                for pa in self.node_parents[node]:
+                    marginalized_graph.add_directed_edge(pa, ch1)
+        return marginalized_graph
 
     def markov_boundary(self, node) -> set:
         """Return the Markov boundary of a node in the ADMG."""
@@ -220,7 +222,7 @@ class ADMG:
     def get_subgraph(self, nodes, x=None, y=None) -> 'ADMG':
         """
             Get the subgraph of the ADMG induced by a set of nodes.
-            if x and y are provided, the directed between x and y will be excluded from the subgraph.
+            if x and y are provided, the directed edge between x and y will be excluded from the subgraph.
         """
         subgraph = ADMG()
         subgraph.add_nodes(nodes, bypass_name_restrictions=True)  # allow nodes starting with "L" in the subgraph if
