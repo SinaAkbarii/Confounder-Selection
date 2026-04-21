@@ -162,6 +162,30 @@ def disjunctive_cause(x, y, g=None) -> set:
         disjunctive_causes = set(x_anc).union(set(y_anc))
     return disjunctive_causes.difference({x, y})
 
+def minimal_disjunctive_cause(x, y, g=None) -> set:
+    """
+    Apply the disjunctive cause criterion for finding a sufficient adjustment set for x,y, then choose a minimal subset of it.
+    :param x: exposure node (must not be an outcome of y)
+    :param y: outcome node (must not be a cause of x)
+    :param g: ground truth ADMG over the observable variables in the problem.
+    :return: a minimal set of variables that are causes of either x or y. If there exists a sufficient adjustment set for (x,y),
+    then the returned set is a minimal sufficient adjustment set. Otherwise, the whole set of ancestors of x or y.
+    """
+    disj_cause = disjunctive_cause(x, y, g=g)
+
+    if g is not None:  # oracle access to the graph
+        return g.minimalize_adj(x, y, disj_cause)
+    else:  # prompt the user to make it minimal
+        minimal_adjustment = set(disj_cause)
+        for node in disj_cause:
+            test_adjustment = minimal_adjustment - {node}
+            # ask the user if there is a common cause of x and y that is not mediated by test_adjustment:
+            print(f"Is there a common cause of {x} and {y} that is not mediated by {test_adjustment}? (y/n)")
+            response = input().lower()
+            if response == 'n':  # if there are no common causes, we can remove this node from the adjustment set
+                minimal_adjustment.remove(node)
+        return minimal_adjustment
+
 def conjunctive_cause(x, y, g=None) -> set:
     """
     The conjunctive cause criterion for finding a sufficient adjustment set for x,y
@@ -186,7 +210,7 @@ def conjunctive_cause(x, y, g=None) -> set:
         conjunctive_causes = set(x_anc).intersection(set(y_anc))
     return conjunctive_causes.difference({x, y})
 
-def treatment_outcome_mb(x, y=None, data=None, g=None, ci_method="fisherz", pval_th=0.05) -> set:
+def treatment_outcome_mb(x, y=None, g=None, data=None, ci_method="fisherz", pval_th=0.05) -> set:
     """
     If y is not provided, returns the Markov blanket of the treatment variable x.
     If y provided, returns the Markov blanket of the treatment variable y including x.
@@ -200,10 +224,10 @@ def treatment_outcome_mb(x, y=None, data=None, g=None, ci_method="fisherz", pval
     if g is not None:
         if not isinstance(g, ADMG):
             raise ValueError("The provided graph is not an ADMG.")
-        if y is None:
-            mb = g.markov_boundary(x)
+        if y is not None:
+            mb = g.markov_boundary(y).difference({y})
         else:
-            mb = g.markov_boundary(y).union({x})
+            mb = g.markov_boundary(x)
     else:
         if data is None:
             raise ValueError("Either data or a graph must be provided.")
@@ -213,23 +237,19 @@ def treatment_outcome_mb(x, y=None, data=None, g=None, ci_method="fisherz", pval
         all_var.remove(x)
 
         mb = set()  # the current Markov boundary
+        first_var = x  # first variable of the conditional independence test
         if y is not None:
-            mb.add(x)
-        else:
             all_var.remove(y)
+            mb.add(x)  # if y is provided, we always condition on x
+            first_var = y
         while all_var:
             var = all_var.pop()
-            if y is None:
-                # test whether x is independent of var given all_var and mb:
-                pval = ci_test(data, x, var, z_cols=list(mb.union(all_var)), method=ci_method)
-            else:
-                # test whether y is independent of var given all_var and mb:
-                pval = ci_test(data, y, var, z_cols=list(mb.union(all_var)), method=ci_method)
+            # test whether first_var is independent of var given all_var and mb:
+            pval = ci_test(data, first_var, var, z_cols=list(mb.union(all_var)), method=ci_method)
             # if not independent, add var to mb:
             if pval < pval_th:
                 mb.add(var)
-
-    return mb
+    return mb.difference({x})
 
 
 

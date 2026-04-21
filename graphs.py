@@ -126,12 +126,35 @@ class ADMG:
             self.updated = False
         return self.dag.is_d_separated(node1, node2, given)
 
+    # TODO: project function is not correctly implemented yet.
+    def project(self, nodes) -> 'ADMG':
+        """Project the ADMG onto a subset of nodes by marginalizing out the other nodes."""
+        # check if nodes are all in self.nodes:
+        if not set(nodes).issubset(self.nodes):
+            raise ValueError(f"All nodes in the projection must be in the original graph. The following nodes are not in the original graph: {set(nodes) - self.nodes}")
+
+        projected_graph = ADMG()
+        projected_graph.add_nodes(nodes, bypass_name_restrictions=True)  # allow nodes starting with "L" in the projected graph if they already are included in the original graph.
+
+        for node in nodes:
+            for parent in self.node_parents[node]:
+                if parent in nodes:
+                    projected_graph.add_directed_edge(parent, node)
+            for child in self.node_children[node]:
+                if child in nodes:
+                    projected_graph.add_directed_edge(node, child)
+            for b_neighbor in self.b_edges[node]:
+                if b_neighbor in nodes:
+                    projected_graph.add_bidirected_edge(node, b_neighbor)
+
+        return projected_graph
+
     def markov_boundary(self, node) -> set:
         """Return the Markov boundary of a node in the ADMG."""
-        def get_district() -> set:
+        def get_district(node_set) -> set:
             # get the set of nodes that are connected to node through a bidirected path
-            district = {node}
-            queue = deque([node])
+            district = set(node_set)
+            queue = deque(node_set)
             while queue:
                 current = queue.popleft()
                 for neighbor in self.b_edges[current]:
@@ -139,11 +162,10 @@ class ADMG:
                         district.add(neighbor)
                         queue.append(neighbor)
             return district
-
-        node_district = get_district()
-        node_dist_children = node_district.union(self.node_children[node])
+        node_children = self.node_children[node]
+        mb_district = get_district(node_children.union({node}))
         #return the parents of node_dist_children:
-        return node_dist_children.union(*[self.node_parents[nd] for nd in node_dist_children])
+        return mb_district.union(*[self.node_parents[nd] for nd in mb_district])
 
 
     def _get_dag(self) -> 'DAG':
@@ -397,6 +419,31 @@ class ADMG:
             return None
         else:
             return minimalize(primary_adjustment)
+
+    def minimalize_adj(self, x, y, adjustment_set) -> set:  #
+        """
+            given an adjustment set, check if any nodes can be removed while still
+            blocking all confounding arcs between x and y to make the adjustment set minimal
+        :param x: first node. must not be an effect of y.
+        :param y: second node. must not be a cause of x.
+        :param adjustment_set: a sufficient adjustment set for x and y.
+        :return: a minimal adjustment set that is a subset of the given adjustment set.
+        """
+        # check if x and y are in the graph:
+        if x not in self.nodes or y not in self.nodes:
+            raise ValueError(f"One or both of the nodes {x} and {y} are not in the graph.")
+        # check whether adjustment_set is sufficient:
+        _, common_ancestors = self._get_dag_ancestral_subgraph({x,y}, not_through=adjustment_set)
+        if common_ancestors:
+            raise ValueError(f"The given adjustment set {adjustment_set} is not sufficient since there are still common ancestors {common_ancestors} between {x} and {y} that are not blocked by the adjustment set.")
+
+        minimal_adjustment = set(adjustment_set)
+        for node in adjustment_set:
+            test_adjustment = minimal_adjustment - {node}
+            _, common_ancestors = self._get_dag_ancestral_subgraph({x, y}, not_through=test_adjustment)
+            if not common_ancestors:  # if there are no common causes, we can remove this node from the adjustment set
+                minimal_adjustment.remove(node)
+        return minimal_adjustment
 
 
 

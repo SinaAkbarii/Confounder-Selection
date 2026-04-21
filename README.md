@@ -4,6 +4,8 @@ This repository contains code for several approaches to confounder selection, in
 - The conjunctive cause criterion (CCC)
 - The disjunctive cause criterion (DCC)
 - The iterative graph expansion algorithm
+- The treatment Markov boundary criterion
+- The outcome Markov boundary criterion
 - More approaches to be added soon!
 
 To install the dependencies in `requirements.txt` to run the code:
