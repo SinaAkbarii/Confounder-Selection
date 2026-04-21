@@ -133,23 +133,25 @@ class ADMG:
         if not set(nodes).issubset(self.nodes):
             raise ValueError(f"All nodes in the projection must be in the original graph. The following nodes are not in the original graph: {set(nodes) - self.nodes}")
 
-        marginalized_graph = self.get_subgraph(nodes)
+        marginalized_graph = self.copy()
 
         # add edges due to marginalization:
         nodes_to_margnialize = self.nodes - set(nodes)
         for node in nodes_to_margnialize:
-            children = self.node_children[node]
+            children = marginalized_graph.node_children[node]
+            spouses = marginalized_graph.b_edges[node]
             for ch1 in children:
+                # add a directed edge from every parent to every child of node: directed path due to node
+                for pa in marginalized_graph.node_parents[node]:
+                    marginalized_graph.add_directed_edge(pa, ch1)
                 # add a bidirected edge between pairs of children: confounding due to node
                 for ch2 in children.difference({ch1}):
                     marginalized_graph.add_bidirected_edge(ch1, ch2)
                 # add a bidirected edge between bidirected neighbors of node and its children: confounding due to node
-                for bi in self.b_edges[node].difference({ch1}):
-                    marginalized_graph.add_bidirected_edge(ch1, bi)
-                # finally, add a directed edge from every parent to every child of node: directed path due to node
-                for pa in self.node_parents[node]:
-                    marginalized_graph.add_directed_edge(pa, ch1)
-        return marginalized_graph
+                for sp in spouses.difference({ch1}):
+                    marginalized_graph.add_bidirected_edge(ch1, sp)
+
+        return marginalized_graph.get_subgraph(nodes)
 
     def markov_boundary(self, node) -> set:
         """Return the Markov boundary of a node in the ADMG."""
