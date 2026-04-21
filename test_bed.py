@@ -1,7 +1,7 @@
 from graphs import ADMG, DAG
 from utils import min_vertex_cut
 from algorithms import (iterative_graph_expansion, disjunctive_cause, conjunctive_cause, treatment_outcome_mb,
-                        minimal_disjunctive_cause)
+                        minimal_disjunctive_cause, iterative_mb)
 
 
 def gen_graph() -> ADMG:
@@ -42,17 +42,21 @@ def test_conjunctive_disjunctive(g=None) -> None:
     print(f"Disjunctive Cause Criterion:{disjunctive_cause('X', 'Y', g)}")
     print(f"Minimalized Disjunctive Cause Criterion: {minimal_disjunctive_cause('X', 'Y', g)}")
 
-def test_markov_boundary(g=None, data=None, ci_method="fisherz", pval_th=0.05):
+def test_markov_boundary(g=None, data=None, ci_method="fisherz", pval_th=0.05, verbose=True):
     tmb = treatment_outcome_mb('X', None, g, data, ci_method=ci_method, pval_th=pval_th)
     omb = treatment_outcome_mb('X', 'Y', g, data, ci_method=ci_method, pval_th=pval_th)
+    alt1 = iterative_mb('X', 'Y', g, data, ci_method=ci_method, pval_th=pval_th, treatment_first=True, verbose=verbose)
+    alt2 = iterative_mb('X', 'Y', g, data, ci_method=ci_method, pval_th=pval_th, treatment_first=False, verbose=verbose)
     print(f"Treatment Markov Boundary: {tmb}")
     print(f"Treatment Markov Boundary: {omb}")
+    print(f"Iterative MB (treatment first): {alt1}")
+    print(f"Iterative MB (outcome first): {alt2}")
 
 def oracle_test(pocc=False, fast=False, verbose=True):
     g = gen_graph()
     test_iterative_graph_expansion(g, pocc=pocc, fast=fast, verbose=verbose)
     test_conjunctive_disjunctive(g)
-    test_markov_boundary(g)
+    test_markov_boundary(g, verbose=verbose)
 
 
 
